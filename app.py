@@ -146,6 +146,28 @@ def predict_disease(image_array):
         print(f"Error making prediction: {e}")
         return None, str(e)
 
+@app.route('/', methods=['GET'])
+def home():
+    """Home page with API documentation"""
+    return jsonify({
+        'message': '🌱 Plant Disease Detection API',
+        'version': '1.0.0',
+        'status': 'running',
+        'endpoints': {
+            'GET /': 'This page - API documentation',
+            'GET /health': 'Health check endpoint',
+            'POST /predict': 'Predict disease from image',
+            'GET /classes': 'Get list of supported classes'
+        },
+        'usage': {
+            'predict': 'Send POST request with image file or base64 image_data',
+            'health': 'Check if API is running and model is loaded',
+            'classes': 'Get list of all supported plant disease classes'
+        },
+        'demo_mode': not tensorflow_available,
+        'model_loaded': model is not None
+    })
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
