@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import tensorflow as tf
 import numpy as np
 import base64
 import io
@@ -12,11 +11,15 @@ CORS(app)  # Enable CORS for React Native app
 
 # Load the model once when the app starts
 model = None
+tensorflow_available = False
 
 def load_model():
     """Load the trained model"""
-    global model
+    global model, tensorflow_available
     try:
+        import tensorflow as tf
+        tensorflow_available = True
+        
         # Try to download model if it doesn't exist
         if not os.path.exists('plant_detection_model.h5'):
             print("Model file not found. Attempting to download...")
@@ -29,10 +32,14 @@ def load_model():
         
         model = tf.keras.models.load_model('plant_detection_model.h5')
         print("Model loaded successfully!")
+        return True
+    except ImportError:
+        print("TensorFlow not available - running in demo mode")
+        tensorflow_available = False
+        return False
     except Exception as e:
         print(f"Error loading model: {e}")
         return False
-    return True
 
 # Class names for the model output
 CLASS_NAMES = [
@@ -111,6 +118,14 @@ def preprocess_image(image_data):
 def predict_disease(image_array):
     """Predict disease using the loaded model"""
     try:
+        if not tensorflow_available:
+            return {
+                'class': 'Demo_Mode',
+                'confidence': 0.95,
+                'class_index': 0,
+                'message': 'TensorFlow not available - running in demo mode'
+            }
+        
         if model is None:
             return None, "Model not loaded"
         
@@ -136,20 +151,15 @@ def health_check():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'model_loaded': model is not None
+        'model_loaded': model is not None,
+        'tensorflow_available': tensorflow_available,
+        'message': 'Plant Detection API is running!'
     })
 
 @app.route('/predict', methods=['POST'])
 def predict():
     """Predict disease from uploaded image"""
     try:
-        # Check if model is loaded
-        if model is None:
-            return jsonify({
-                'error': 'Model not loaded',
-                'status': 'error'
-            }), 500
-        
         # Get image data from request
         if 'image' not in request.files and 'image_data' not in request.json:
             return jsonify({
@@ -206,4 +216,5 @@ if __name__ == '__main__':
         print("Starting Flask server...")
         app.run(host='0.0.0.0', port=5000, debug=False)
     else:
-        print("Failed to load model. Exiting...") 
+        print("Starting Flask server in demo mode...")
+        app.run(host='0.0.0.0', port=5000, debug=False) 
